@@ -9,7 +9,7 @@ export const TOTAL_CAMPAIGN_USERS = 120;
 
 const CURRENT_USER ={ name: "Aisha Bello", role: "Campaign Supervisor" };
 // Own key, so this copy never shares saved data with the original attendance site on the same domain.
-const STORAGE_KEY = "attendanceUxRevampData";
+const STORAGE_KEY = "attendanceNewVersionData";
 
 const EMPTY = {
   uploadedRegisters: [],
