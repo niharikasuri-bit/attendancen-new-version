@@ -121,7 +121,7 @@ export default function AttendanceHome() {
                     {i < all.length - 1 && <span aria-hidden="true" className="absolute left-[9px] top-5 h-full w-px bg-border" />}
                     <span
                       className={`relative grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-bold ${
-                        i === all.length - 1 ? "bg-green-700 text-white" : "bg-heading text-white"
+                        i === all.length - 1 ? "bg-green-100 text-green-800 ring-1 ring-green-300" : "bg-info text-info-foreground ring-1 ring-info-foreground/25"
                       }`}
                     >
                       {i + 1}
