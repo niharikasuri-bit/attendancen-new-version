@@ -232,7 +232,7 @@ async function readTemplate(file, requiredCodes) {
   }
   const text = (v) => (v == null ? "" : v instanceof Date ? v.toISOString().slice(0, 10) : String(v).trim());
   const sheets = [];
-  for (const { data } of workbook) {
+  for (const { sheet: sheetName, data } of workbook) {
     const headerIndex = data.findIndex((row) => requiredCodes.every((code) => row.some((cell) => text(cell) === code)));
     if (headerIndex < 0) continue;
     const codes = (data[headerIndex] ?? []).map(text);
@@ -245,6 +245,7 @@ async function readTemplate(file, requiredCodes) {
         .map((row) => ({
           get: (code) => (col(code) < 0 ? "" : text(row[col(code)])),
           label: (code) => labels[col(code)] ?? code,
+          sheet: sheetName,
         })),
     );
   }
@@ -522,6 +523,12 @@ export function buildUserMappingTemplate() {
 
 export const downloadUserMappingTemplate = () => downloadWorkbook(buildUserMappingTemplate());
 
+/** "2026-11-23" stays as is; "23/11/2026" (typed in Excel) becomes "2026-11-23". */
+const isoDate = (v) => {
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(v ?? "");
+  return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : v || "";
+};
+
 /** Users from an uploaded mapping file; rows without a name or a known Register ID are skipped. */
 async function parseUserMappingTemplate(file) {
   const sheets = await readTemplate(file, [USER.workerId, REGISTER_ID]);
@@ -535,13 +542,19 @@ async function parseUserMappingTemplate(file) {
       skipped++;
       continue;
     }
+    // The tab a row is on says the user type ("Frontline Workers" -> "Frontline Worker").
+    const type = USER_SHEETS.some((sh) => sh.name === row.sheet) ? row.sheet.replace(/s$/, "") : undefined;
     users.push({
       registerId: register.id,
       name,
       workerId: row.get(USER.workerId) || name,
+      username: row.get(USER.username),
+      ...(type ? { type } : {}),
       role: USER.roles.map(row.get).filter(Boolean).join(", "),
       boundary: row.get(USER.boundary) || register.boundaryName || register.boundary,
       teamCode: row.get(USER.teamCode),
+      enrollmentDate: isoDate(row.get(USER.enrollment)),
+      deenrollmentDate: isoDate(row.get(USER.deenrollment)),
       status: "Active",
     });
   }
