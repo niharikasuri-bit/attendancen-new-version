@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AppShell, Breadcrumb } from "@/components/app-shell";
 import { attendanceActions, getRegisters, mappedUsers, unmappedUsers, useAttendanceStore } from "@/lib/attendance-store";
-import { Filters, isNewlyAdded, NotMappedUsers, RegisterUsers, ReviewMapDialog, UserTabs, useUserFilters } from "@/components/register-users";
+import { Filters, isNewlyAdded, MapUsersDialog, NotMappedUsers, RegisterUsers, ReviewMapDialog, UserTabs, useUserFilters } from "@/components/register-users";
 import { usePageLoading } from "@/components/loader";
 import { UserCheck, UserPlus } from "lucide-react";
 
@@ -40,11 +40,19 @@ export default function ViewRegister() {
   // Opened from the "Unmapped users" column (#unmapped) -> start on Mapping Pending.
   const [tab, setTab] = useState(() => (window.location.hash === "#unmapped" ? "pending" : "registered"));
   const filters = useMemo(() => ({ query: userFilters.query, types: userFilters.types }), [userFilters.query, userFilters.types]);
-  // Map the picked users with the regular mapping flow, starting at its enrollment date step.
+  // Map the picked users: a popup asks the enrollment date (and an optional team code).
+  const [mapping, setMapping] = useState(null);
+  const [mappedNote, setMappedNote] = useState("");
   const startMapping = (users) => {
-    attendanceActions.setMappingRegisters([registerId]);
-    attendanceActions.setMappingUsers(users);
-    navigate("/attendance/map-template?step=1");
+    setReviewOpen(false);
+    setMapping(users);
+  };
+  const finishMapping = (entries) => {
+    attendanceActions.mapUnmappedUsers(register, entries);
+    setPicked(new Set());
+    setMapping(null);
+    setTab("registered");
+    setMappedNote(`${entries.length} ${entries.length === 1 ? "user" : "users"} mapped to ${register.name}.`);
   };
   const mapPicked = () => startMapping(chosen);
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -90,6 +98,25 @@ export default function ViewRegister() {
               </div>
             )}
           </div>
+
+          {mappedNote && (
+            <div role="status" className="relative flex items-center gap-2 border border-l-[6px] border-[#00703C] bg-[#E6F2EC] py-3 pl-6 pr-14 text-base font-bold text-[#00703C]">
+              <svg viewBox="0 0 24 24" className="size-5 shrink-0" aria-hidden="true">
+                <path d={PATHS.checkCircle} fill="currentColor" />
+              </svg>
+              {mappedNote}
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => setMappedNote("")}
+                className="absolute right-3 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded hover:bg-[#00703C]/10"
+              >
+                <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true">
+                  <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor" />
+                </svg>
+              </button>
+            </div>
+          )}
 
           {waiting.length > 0 && !infoClosed && (
             <div role="status" className="relative flex flex-col items-start gap-3 border border-l-[6px] border-[#0057BD] bg-[#DEEFFF] py-4 pl-6 pr-14">
@@ -224,6 +251,9 @@ export default function ViewRegister() {
       </main>
 
 
+      {mapping && register && (
+        <MapUsersDialog register={register} users={mapping} onClose={() => setMapping(null)} onMap={finishMapping} />
+      )}
       {reviewOpen && register && (
         <ReviewMapDialog register={register} list={waiting} onClose={() => setReviewOpen(false)} onContinue={startMapping} />
       )}

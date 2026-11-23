@@ -28,9 +28,9 @@ function PreviewNote({ title, text }) {
 // What a user may do with each column, shown as a tag in each column header.
 export const COLUMN_TONES = {
   fixed: { label: "Pre-filled, non-editable", band: "bg-gray-200 text-heading", header: "bg-gray-100 text-heading", cell: "bg-gray-100 text-muted-foreground" },
-  auto: { label: "Pre-filled, editable", band: "bg-green-100 text-green-900", header: "bg-card text-heading" },
-  required: { label: "Required", band: "bg-amber-100 text-amber-900", header: "bg-card text-heading" },
-  optional: { label: "Optional", band: "bg-blue-50 text-blue-900", header: "bg-card text-heading" },
+  auto: { label: "Pre-filled, editable", band: "bg-green-100 text-green-900", header: "bg-green-50 text-heading", cell: "bg-green-50/60" },
+  required: { label: "Required", band: "bg-amber-100 text-amber-900", header: "bg-amber-50 text-heading", cell: "bg-amber-50/50" },
+  optional: { label: "Optional", band: "bg-blue-100 text-blue-900", header: "bg-blue-50 text-heading", cell: "bg-blue-50/50" },
 };
 
 /**

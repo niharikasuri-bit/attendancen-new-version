@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Search } from "lucide-react";
+import { ChevronDown, Search, UserPlus } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/flow-controls";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { USER_TYPE_NAMES } from "@/lib/attendance-store";
+import { USER_TYPE_NAMES, localIsoDate } from "@/lib/attendance-store";
 
 const formatDate = (iso) => (iso ? new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—");
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -419,6 +419,91 @@ export function ReviewMapDialog({ register, list: waiting, onClose, onContinue }
             </button>
           </div>
         </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Map Users from View Register: the picked users get an enrollment date (required)
+ * and a team code (optional), then are mapped straight to this register.
+ */
+const cardFieldClass =
+  "h-12 w-full rounded-lg border border-[#8A8A8A] bg-white px-4 text-lg text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/30";
+
+export function MapUsersDialog({ register, users, onClose, onMap }) {
+  const [date, setDate] = useState(() => localIsoDate());
+  const [teamCode, setTeamCode] = useState("");
+  const submit = (e) => {
+    e.preventDefault();
+    if (!date) return;
+    onMap(users.map((u) => ({ ...u, enrollmentDate: date, teamCode: teamCode.trim() })));
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="flex w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 bg-white p-0">
+        <form onSubmit={submit}>
+          <DialogHeader className="border-b border-border px-6 py-5">
+            <DialogTitle className="flex items-center gap-2 text-2xl font-bold text-heading">
+              <UserPlus className="size-7 shrink-0 text-primary" aria-hidden="true" />
+              Map Users
+            </DialogTitle>
+            <DialogDescription className="text-base text-muted-foreground">
+              {plural(users.length, "user")} will be mapped to {register.name}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4 px-6 py-5">
+            <div className="rounded-xl border border-[#E0E0E0] bg-[#F7F7F7] p-4">
+              <label htmlFor="map-enrollment" className="block text-lg font-bold leading-[1.14] text-foreground">
+                Enrollment Date <span className="text-primary">*</span>
+              </label>
+              <p id="map-enrollment-hint" className="mt-1 text-sm text-muted-foreground">Attendance can be marked from this date.</p>
+              <input
+                id="map-enrollment"
+                type="date"
+                required
+                aria-describedby="map-enrollment-hint"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className={`${cardFieldClass} mt-3`}
+              />
+            </div>
+            <div className="rounded-xl border border-[#E0E0E0] bg-[#F7F7F7] p-4">
+              <label htmlFor="map-team" className="block text-lg font-bold leading-[1.14] text-foreground">
+                Team Code <span className="text-base font-normal text-muted-foreground">(Optional)</span>
+              </label>
+              <p id="map-team-hint" className="mt-1 text-sm text-muted-foreground">Users with the same code are in the same team.</p>
+              <input
+                id="map-team"
+                type="text"
+                aria-describedby="map-team-hint"
+                value={teamCode}
+                onChange={(e) => setTeamCode(e.target.value)}
+                placeholder="e.g. TEAM-01"
+                className={`${cardFieldClass} mt-3`}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 border-t border-border px-6 py-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-10 items-center justify-center rounded-md border border-primary bg-white px-6 text-base font-medium text-primary hover:bg-primary/5"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!date}
+              className="flex h-10 items-center justify-center rounded-md bg-primary px-6 text-base font-medium text-primary-foreground hover:brightness-95 disabled:cursor-not-allowed disabled:bg-border disabled:text-muted-foreground"
+            >
+              Map Users
+            </button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );
