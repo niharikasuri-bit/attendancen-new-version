@@ -32,13 +32,13 @@ export function RadioDot({ selected, className = "" }) {
 }
 
 /** Selectable card with a radio dot, title and description. */
-export function RadioCard({ label, text, selected, onSelect, dotClassName }) {
+export function RadioCard({ label, text, selected, onSelect, dotClassName, idleBg = "bg-info-bg" }) {
   return (
     <button
       type="button"
       onClick={onSelect}
       className={`flex w-full items-start gap-3 rounded-lg border p-4 text-left transition-colors ${
-        selected ? "border-primary bg-selected-bg" : "border-border bg-info-bg hover:border-muted-foreground/30"
+        selected ? "border-primary bg-selected-bg" : `border-border ${idleBg} hover:border-muted-foreground/30`
       }`}
     >
       <RadioDot selected={selected} className={dotClassName} />

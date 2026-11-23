@@ -59,10 +59,12 @@ export function TemplateUploadPage({
   const [dragging, setDragging] = useState(false);
   const [done, setDone] = useState(false);
   const [result, setResult] = useState(null);
-  const [modalOpen, setModalOpen] = useState(true);
+  // `?view=1` (e.g. from View Register's Map Users popup): open the generated template straight away.
+  const [openView] = useState(() => new URLSearchParams(window.location.search).get("view") === "1");
+  const [modalOpen, setModalOpen] = useState(!openView);
   const [error, setError] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [preview, setPreview] = useState(null);
+  const [preview, setPreview] = useState(() => (openView ? buildTemplate() : null));
   // { status: "checking" | "ready" | "error", message }
   const [checkState, setCheckState] = useState(null);
   const withLoader = useOverlayLoader();
@@ -88,9 +90,11 @@ export function TemplateUploadPage({
   }, [file]);
 
   const finishUpload = async (f) => {
-    setResult(await upload(f));
+    const r = await upload(f);
+    // onUploaded may take over (e.g. return to the register); returning true skips the success screen.
+    if (onUploaded?.(r) === true) return;
+    setResult(r);
     setDone(true);
-    onUploaded?.();
   };
 
   // From the preview: put the generated workbook in the uploader, then confirm as usual.

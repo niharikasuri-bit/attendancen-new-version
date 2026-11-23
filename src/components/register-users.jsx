@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, Search, UserPlus } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Checkbox } from "@/components/flow-controls";
+import { Checkbox, RadioCard } from "@/components/flow-controls";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { USER_TYPE_NAMES, localIsoDate } from "@/lib/attendance-store";
 
@@ -424,20 +424,20 @@ export function ReviewMapDialog({ register, list: waiting, onClose, onContinue }
   );
 }
 
-/**
- * Map Users from View Register: the picked users get an enrollment date (required)
- * and a team code (optional), then are mapped straight to this register.
- */
-const cardFieldClass =
-  "h-12 w-full rounded-lg border border-[#8A8A8A] bg-white px-4 text-lg text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/30";
+/** Map Users from View Register: same enrollment date for all (mapped here) or a date per user (template flow). */
+const SAME_DATE = "Same date for all users";
+const PER_USER = "Different date for each user";
 
-export function MapUsersDialog({ register, users, onClose, onMap }) {
+export function MapUsersDialog({ register, users, onClose, onMap, onPerUser }) {
+  const [enrollment, setEnrollment] = useState(SAME_DATE);
   const [date, setDate] = useState(() => localIsoDate());
-  const [teamCode, setTeamCode] = useState("");
+  const same = enrollment === SAME_DATE;
   const submit = (e) => {
     e.preventDefault();
+    // Different dates: continue in the template flow, with these users filled in.
+    if (!same) return onPerUser(users);
     if (!date) return;
-    onMap(users.map((u) => ({ ...u, enrollmentDate: date, teamCode: teamCode.trim() })));
+    onMap(users.map((u) => ({ ...u, enrollmentDate: date })));
   };
 
   return (
@@ -454,36 +454,35 @@ export function MapUsersDialog({ register, users, onClose, onMap }) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-col gap-4 px-6 py-5">
-            <div className="rounded-xl border border-[#E0E0E0] bg-[#F7F7F7] p-4">
-              <label htmlFor="map-enrollment" className="block text-lg font-bold leading-[1.14] text-foreground">
-                Enrollment Date <span className="text-primary">*</span>
-              </label>
-              <p id="map-enrollment-hint" className="mt-1 text-sm text-muted-foreground">Attendance can be marked from this date.</p>
-              <input
-                id="map-enrollment"
-                type="date"
-                required
-                aria-describedby="map-enrollment-hint"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className={`${cardFieldClass} mt-3`}
-              />
+          <div className="max-h-[65vh] overflow-y-auto px-6 py-5">
+            <div className="rounded-xl border border-[#E0E0E0] bg-[#F7F7F7] p-5">
+            <h3 id="map-enrollment-q" className="text-lg font-bold leading-[1.14] text-heading">From which date should attendance be marked for these users?</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              This is the enrollment date. Users appear on the register from this date and can be marked Present or Absent.
+            </p>
+            <div role="radiogroup" aria-labelledby="map-enrollment-q" className="mt-4 space-y-3">
+              {[
+                { label: PER_USER, text: "Set an enrollment date for every user in the template, then upload it." },
+                { label: SAME_DATE, text: "Choose one enrollment date that applies to everyone." },
+              ].map((o) => (
+                <RadioCard key={o.label} label={o.label} text={o.text} selected={enrollment === o.label} onSelect={() => setEnrollment(o.label)} idleBg="bg-white" />
+              ))}
             </div>
-            <div className="rounded-xl border border-[#E0E0E0] bg-[#F7F7F7] p-4">
-              <label htmlFor="map-team" className="block text-lg font-bold leading-[1.14] text-foreground">
-                Team Code <span className="text-base font-normal text-muted-foreground">(Optional)</span>
-              </label>
-              <p id="map-team-hint" className="mt-1 text-sm text-muted-foreground">Users with the same code are in the same team.</p>
-              <input
-                id="map-team"
-                type="text"
-                aria-describedby="map-team-hint"
-                value={teamCode}
-                onChange={(e) => setTeamCode(e.target.value)}
-                placeholder="e.g. TEAM-01"
-                className={`${cardFieldClass} mt-3`}
-              />
+            {same && (
+              <div className="mt-5 border-t border-[#E0E0E0] pt-5">
+                <label htmlFor="map-enrollment" className="block text-sm font-bold text-foreground">
+                  Enrollment Date <span className="text-primary">*</span>
+                </label>
+                <input
+                  id="map-enrollment"
+                  type="date"
+                  required
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-input bg-card px-3 py-2.5 text-sm text-foreground"
+                />
+              </div>
+            )}
             </div>
           </div>
 
@@ -497,7 +496,7 @@ export function MapUsersDialog({ register, users, onClose, onMap }) {
             </button>
             <button
               type="submit"
-              disabled={!date}
+              disabled={same && !date}
               className="flex h-10 items-center justify-center rounded-md bg-primary px-6 text-base font-medium text-primary-foreground hover:brightness-95 disabled:cursor-not-allowed disabled:bg-border disabled:text-muted-foreground"
             >
               Map Users

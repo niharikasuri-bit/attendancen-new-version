@@ -1,4 +1,5 @@
 import { CircleCheck } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { TemplateUploadPage } from "@/components/template-upload-page";
 import { useAttendanceStore } from "@/lib/attendance-store";
 import { buildUserMappingTemplate, checkUserMappingTemplate, downloadUserMappingTemplate, uploadUserMappingTemplate } from "@/lib/templates";
@@ -21,6 +22,16 @@ function describeMappingCheck({ users, registers, skipped }) {
 export default function UploadMapping() {
   const { mappingIds, mappingOptions } = useAttendanceStore();
   const registerCount = mappingIds.length;
+  const navigate = useNavigate();
+  // Opened from View Register (`?register=`): after the upload, go back to that register with a toast.
+  const [params] = useSearchParams();
+  const fromRegister = params.get("register");
+  const backToRegister = (result) => {
+    if (!fromRegister) return false;
+    const n = result?.users ?? 0;
+    navigate(`/attendance/registers/${fromRegister}?from=manage`, { state: { toast: `${n} ${n === 1 ? "user" : "users"} mapped successfully` } });
+    return true;
+  };
 
   return (
     <TemplateUploadPage
@@ -34,6 +45,7 @@ export default function UploadMapping() {
       buildTemplate={buildUserMappingTemplate}
       downloadTemplate={downloadUserMappingTemplate}
       upload={uploadUserMappingTemplate}
+      onUploaded={backToRegister}
       check={checkUserMappingTemplate}
       describeCheck={describeMappingCheck}
       resultHint="how many users are mapped"

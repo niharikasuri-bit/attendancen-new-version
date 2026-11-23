@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AppShell, Breadcrumb } from "@/components/app-shell";
-import { attendanceActions, getRegisters, mappedUsers, unmappedUsers, useAttendanceStore } from "@/lib/attendance-store";
+import { attendanceActions, getRegisters, localIsoDate, mappedUsers, unmappedUsers, useAttendanceStore } from "@/lib/attendance-store";
 import { Filters, isNewlyAdded, MapUsersDialog, NotMappedUsers, RegisterUsers, ReviewMapDialog, UserTabs, useUserFilters } from "@/components/register-users";
 import { usePageLoading } from "@/components/loader";
 import { UserCheck, UserPlus } from "lucide-react";
@@ -42,18 +42,37 @@ export default function ViewRegister() {
   const filters = useMemo(() => ({ query: userFilters.query, types: userFilters.types }), [userFilters.query, userFilters.types]);
   // Map the picked users: a popup asks the enrollment date (and an optional team code).
   const [mapping, setMapping] = useState(null);
-  const [mappedNote, setMappedNote] = useState("");
+  // Coming back from the mapping upload: show its toast.
+  const [mappedNote, setMappedNote] = useState(() => window.history.state?.usr?.toast ?? "");
   const startMapping = (users) => {
     setReviewOpen(false);
     setMapping(users);
+  };
+  // Different date per user: generate the template with these users filled in and open its upload page.
+  const mapPerUser = (users) => {
+    attendanceActions.setMappingRegisters([registerId]);
+    attendanceActions.setMappingUsers(users);
+    attendanceActions.setMappingOptions({ enrollment: "Different date for each user", enrollmentDate: localIsoDate() });
+    setMapping(null);
+    navigate(`/attendance/upload-mapping?view=1&register=${registerId}`);
   };
   const finishMapping = (entries) => {
     attendanceActions.mapUnmappedUsers(register, entries);
     setPicked(new Set());
     setMapping(null);
     setTab("registered");
-    setMappedNote(`${entries.length} ${entries.length === 1 ? "user" : "users"} mapped to ${register.name}.`);
+    setMappedNote(`${entries.length} ${entries.length === 1 ? "user" : "users"} mapped successfully`);
   };
+  // Show the upload's toast once (not again on refresh).
+  useEffect(() => {
+    if (window.history.state?.usr?.toast) window.history.replaceState({ ...window.history.state, usr: null }, "");
+  }, []);
+  // The success toast closes itself after a few seconds.
+  useEffect(() => {
+    if (!mappedNote) return;
+    const t = setTimeout(() => setMappedNote(""), 4000);
+    return () => clearTimeout(t);
+  }, [mappedNote]);
   const mapPicked = () => startMapping(chosen);
   const [reviewOpen, setReviewOpen] = useState(false);
   const chosen = waiting.filter((u) => picked.has(u.workerId));
@@ -98,25 +117,6 @@ export default function ViewRegister() {
               </div>
             )}
           </div>
-
-          {mappedNote && (
-            <div role="status" className="relative flex items-center gap-2 border border-l-[6px] border-[#00703C] bg-[#E6F2EC] py-3 pl-6 pr-14 text-base font-bold text-[#00703C]">
-              <svg viewBox="0 0 24 24" className="size-5 shrink-0" aria-hidden="true">
-                <path d={PATHS.checkCircle} fill="currentColor" />
-              </svg>
-              {mappedNote}
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={() => setMappedNote("")}
-                className="absolute right-3 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded hover:bg-[#00703C]/10"
-              >
-                <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true">
-                  <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor" />
-                </svg>
-              </button>
-            </div>
-          )}
 
           {waiting.length > 0 && !infoClosed && (
             <div role="status" className="relative flex flex-col items-start gap-3 border border-l-[6px] border-[#0057BD] bg-[#DEEFFF] py-4 pl-6 pr-14">
@@ -251,8 +251,24 @@ export default function ViewRegister() {
       </main>
 
 
+      {mappedNote && (
+        <div
+          role="status"
+          className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-lg bg-[#00703C] py-3 pl-4 pr-2 text-base font-medium text-white shadow-lg"
+        >
+          <svg viewBox="0 0 24 24" className="size-5 shrink-0" aria-hidden="true">
+            <path d={PATHS.checkCircle} fill="currentColor" />
+          </svg>
+          {mappedNote}
+          <button type="button" aria-label="Close" onClick={() => setMappedNote("")} className="ml-2 grid size-7 place-items-center rounded hover:bg-white/15">
+            <svg viewBox="0 0 24 24" className="size-4" aria-hidden="true">
+              <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor" />
+            </svg>
+          </button>
+        </div>
+      )}
       {mapping && register && (
-        <MapUsersDialog register={register} users={mapping} onClose={() => setMapping(null)} onMap={finishMapping} />
+        <MapUsersDialog register={register} users={mapping} onClose={() => setMapping(null)} onMap={finishMapping} onPerUser={mapPerUser} />
       )}
       {reviewOpen && register && (
         <ReviewMapDialog register={register} list={waiting} onClose={() => setReviewOpen(false)} onContinue={startMapping} />
