@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Download, Plus, Search, Trash2, TriangleAlert, Users } from "lucide-react";
 import { AppShell, Breadcrumb } from "@/components/app-shell";
@@ -22,9 +22,10 @@ import { Loader, useOverlayLoader, usePageLoading } from "@/components/loader";
 const PAGE_SIZES = [10, 20, 50];
 const NO_FILTERS = { query: "", level: "", frequency: "", officer: "", status: "" };
 
+// "All mapped": has users and nobody waiting. "Pending": users waiting to be mapped, or no users yet.
 const STATUS_OPTIONS = [
-  { value: "mapped", label: "Users mapped" },
-  { value: "unmapped", label: "No users mapped" },
+  { value: "mapped", label: "All Users Mapped" },
+  { value: "pending", label: "Pending Mapping" },
 ];
 
 const plural = (n, word) => `${n} ${n === 1 ? word : `${word}s`}`;
@@ -101,6 +102,7 @@ export default function ManageRegisters() {
     setApplied(NO_FILTERS);
   };
 
+  const isPending = useCallback((r) => r.users === 0 || unmappedUsers(r, store.users, store.skippedUsers).length > 0, [store.users, store.skippedUsers]);
   const visible = useMemo(() => {
     const { query, level, frequency, officer, status } = applied;
     const q = query.toLowerCase();
@@ -110,9 +112,9 @@ export default function ManageRegisters() {
         (!level || hasBoundaryLevel(r, level)) &&
         (!frequency || r.frequency === frequency) &&
         (!officer || r.officer === officer) &&
-        (!status || (status === "unmapped" ? r.users === 0 : r.users > 0)),
+        (!status || (status === "pending") === isPending(r)),
     );
-  }, [registers, applied]);
+  }, [registers, applied, isPending]);
 
   useEffect(() => setPage(0), [applied]);
 
