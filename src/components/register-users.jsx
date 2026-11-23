@@ -55,7 +55,7 @@ export function Filters({ idPrefix, query, setQuery, types, setTypes, compact = 
                   e.preventDefault();
                   toggleType(t);
                 }}
-                className="cursor-pointer gap-3 px-3 py-2.5 text-base focus:bg-muted"
+                className="cursor-pointer gap-3 px-3 py-2.5 text-base text-foreground focus:bg-[#FBEEE8] focus:text-foreground"
               >
                 <Checkbox checked={types.includes(t)} />
                 {t}
