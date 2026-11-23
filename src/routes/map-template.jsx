@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Loader, usePageLoading } from "@/components/loader";
 import { ChevronLeft, Info, Search, X } from "lucide-react";
@@ -189,6 +189,10 @@ export default function MapTemplate() {
     const ids = getRegisters(getState()).map((r) => r.id);
     return getState().latestIds.filter((id) => ids.includes(id));
   });
+  // Users picked on View Register only apply when the flow was opened from there (?step=1).
+  useEffect(() => {
+    if (!resuming) attendanceActions.setMappingUsers([]);
+  }, [resuming]);
   const [selected, setSelected] = useState(() => {
     if (resuming) return getState().mappingIds;
     // `?register=` (from View Register) or `?registers=a,b` (bulk action on Manage Registers).

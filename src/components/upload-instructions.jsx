@@ -25,10 +25,12 @@ function PreviewNote({ title, text }) {
 }
 
 // Header colours for colour-coded column types (see SheetTable `toneFor`).
+// What a user may do with each column, shown as a tag in each column header.
 export const COLUMN_TONES = {
-  auto: { label: "Auto-filled", header: "bg-green-50 text-green-900", bar: "var(--color-green-600)", swatch: "bg-green-600" },
-  required: { label: "Required to be filled", header: "bg-amber-50 text-amber-900", bar: "var(--color-amber-500)", swatch: "bg-amber-500" },
-  optional: { label: "Optional", header: "bg-muted text-muted-foreground", bar: "var(--color-gray-300)", swatch: "bg-gray-300" },
+  fixed: { label: "Pre-filled, non-editable", band: "bg-gray-200 text-heading", header: "bg-gray-100 text-heading", cell: "bg-gray-100 text-muted-foreground" },
+  auto: { label: "Pre-filled, editable", band: "bg-green-100 text-green-900", header: "bg-card text-heading" },
+  required: { label: "Required", band: "bg-amber-100 text-amber-900", header: "bg-card text-heading" },
+  optional: { label: "Optional", band: "bg-blue-50 text-blue-900", header: "bg-card text-heading" },
 };
 
 /**
@@ -48,7 +50,6 @@ export function SheetTable({ sheet, toneFor, minRows = MIN_PREVIEW_ROWS }) {
           {columns.map((c) => (
             <th
               key={c.code}
-              style={c.tone ? { boxShadow: `inset 0 3px 0 ${COLUMN_TONES[c.tone].bar}` } : undefined}
               className="border-b border-r border-border bg-muted px-2 py-1 text-center font-medium text-muted-foreground"
             >
               {columnLetter(c.index)}
@@ -69,7 +70,13 @@ export function SheetTable({ sheet, toneFor, minRows = MIN_PREVIEW_ROWS }) {
             >
               {c.label}
               {c.format && <span className="font-normal text-muted-foreground"> ({c.format})</span>}
-              {c.tone && <span className="sr-only"> ({COLUMN_TONES[c.tone].label})</span>}
+              {c.tone && (
+                <span
+                  className={`mt-1 block w-fit whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset ring-black/10 ${COLUMN_TONES[c.tone].band}`}
+                >
+                  {COLUMN_TONES[c.tone].label}
+                </span>
+              )}
             </th>
           ))}
           <th className="border-b-2 border-b-muted-foreground/40 bg-card" />
@@ -83,7 +90,7 @@ export function SheetTable({ sheet, toneFor, minRows = MIN_PREVIEW_ROWS }) {
               const cell = row[c.index] ?? null;
               const numeric = typeof cellValue(cell) === "number";
               return (
-                <td key={c.code} className={`whitespace-nowrap border-b border-r border-border px-2 py-1.5 ${numeric ? "text-right tabular-nums" : ""}`}>
+                <td key={c.code} className={`whitespace-nowrap border-b border-r border-border px-2 py-1.5 ${numeric ? "text-right tabular-nums" : ""} ${c.tone ? COLUMN_TONES[c.tone].cell ?? "" : ""}`}>
                   {formatCell(cell)}
                 </td>
               );
@@ -97,7 +104,7 @@ export function SheetTable({ sheet, toneFor, minRows = MIN_PREVIEW_ROWS }) {
               {rows.length + i + 3}
             </td>
             {columns.map((c) => (
-              <td key={c.code} className="border-b border-r border-border px-2 py-1.5">
+              <td key={c.code} className={`border-b border-r border-border px-2 py-1.5 ${c.tone ? COLUMN_TONES[c.tone].cell ?? "" : ""}`}>
                 {" "}
               </td>
             ))}

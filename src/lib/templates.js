@@ -15,8 +15,13 @@ const REGISTER_ID = "HCM_ATTENDANCE_REGISTER_ID";
 const REGISTER_SESSIONS = "HCM_ATTENDANCE_REGISTER_SESSIONS";
 const ROW_ID = "HCM_ADMIN_CONSOLE____ROW_ID";
 
+const BOUNDARY_LEVEL = "HCM_ATTENDANCE_REGISTER_BOUNDARY_LEVEL";
+const BOUNDARY_NAME = "HCM_ATTENDANCE_REGISTER_BOUNDARY_NAME";
+
+// One row per register: the boundary level chosen in the stepper, then the area's name.
 const REGISTER_COLUMNS = [
-  ...BOUNDARY_COLUMNS,
+  { code: BOUNDARY_LEVEL, label: "Boundary Level", width: 20 },
+  { code: BOUNDARY_NAME, label: "Boundary Name", width: 30 },
   { code: BOUNDARY_CODE, label: "Service Boundary Code", width: 30, hidden: true },
   { code: REGISTER_ID, label: "Register ID", width: 40 },
   { code: REGISTER_SESSIONS, label: "Sessions", width: 20 },
@@ -76,7 +81,7 @@ function registerInstructions({ levels, frequency, sessions }) {
     "Instructions for filling the Attendance Register template:",
     ...(chosen.length ? ["", "Your selections:", ...chosen.map((c) => `• ${c}`)] : []),
     "",
-    "1. Fill at least one boundary column for each row",
+    "1. Boundary Level and Boundary Name are filled in from your selections, one row for each register",
     "2. Each register gets a new Register ID (BILL followed by 8 digits). You can edit it if needed.",
     "3. Ensure all Register IDs are unique",
     `4. Sessions is pre-filled with ${sessions} for every register. Change it per row if a register needs a different number.`,
@@ -93,6 +98,27 @@ const SAMPLE_VILLAGES = [
   { village: "MAKABARTA A com 01", code: "NIGERIA_NI_09_14_18_01_63_MAKABARTA_A_COM_01" },
   { village: "GENERAL HOSPITAL AREA", code: "NIGERIA_NI_09_14_18_01_62_GENERAL_HOSPITAL_AREA" },
 ];
+
+// Sample areas for each boundary level (counts match the stepper: 1 state, 6 LGAs, 14 wards, 96 settlements).
+const SAMPLE_WARDS = [
+  "Dengi", "Garga", "Jarmai", "Kantana", "Bashar", "Lamba", "Chip",
+  "Kerang", "Doemak", "Kurgwi", "Gindiri", "Ampang", "Jarawa", "Tudun Wada",
+];
+const SAMPLE_AREAS = {
+  State: ["Plateau"],
+  LGA: ["Kanam", "Wase", "Pankshin", "Shendam", "Mangu", "Jos North"],
+  Ward: SAMPLE_WARDS,
+  Settlement: Array.from({ length: 96 }, (_, i) => `${SAMPLE_WARDS[i % SAMPLE_WARDS.length]} Settlement ${Math.floor(i / SAMPLE_WARDS.length) + 1}`),
+};
+const boundaryCodeFor = (level, name) => `NIGERIA_${level}_${name}`.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
+
+/** One { level, name, code } per register, for the levels chosen (in stepper order). */
+function registerAreas(levels) {
+  const chosen = Object.keys(SAMPLE_AREAS).filter((l) => levels.includes(l));
+  return (chosen.length ? chosen : ["Settlement"]).flatMap((level) =>
+    SAMPLE_AREAS[level].map((name) => ({ level, name, code: boundaryCodeFor(level, name) })),
+  );
+}
 
 const SAMPLE_NAMES = [
   "Dwight", "Oscar", "Kevin", "Pam", "Michael", "Jim", "Angela", "Stanley", "Phyllis", "Andy",
@@ -233,6 +259,8 @@ const sessionsPerDay = (frequency) => (frequency === "Twice a day" ? 2 : 1);
 
 // What each register column expects, keyed by its header label.
 export const REGISTER_COLUMN_GUIDE = {
+  "Boundary Level": { required: true, help: "The boundary level you chose for this register." },
+  "Boundary Name": { required: true, help: "The area this register is for." },
   "Register ID": {
     required: false,
     help: "Auto-filled from the boundary. Must be unique.",
@@ -261,12 +289,13 @@ function nextRegisterIds(count) {
 export function buildRegisterTemplate() {
   const { templateLevels, templateFrequency } = getState();
   const sessions = sessionsPerDay(templateFrequency);
-  const registerIds = nextRegisterIds(SAMPLE_VILLAGES.length);
+  const areas = registerAreas(templateLevels);
+  const registerIds = nextRegisterIds(areas.length);
   return {
     fileName: "Attendance_Register_Template.xlsx",
     audit: {
       action: "Template Downloaded",
-      details: `Attendance register template downloaded · ${SAMPLE_VILLAGES.length} registers · ${sessions} ${sessions === 1 ? "session" : "sessions"} a day`,
+      details: `Attendance register template downloaded · ${areas.length} registers · ${sessions} ${sessions === 1 ? "session" : "sessions"} a day`,
     },
     sheets: [
       {
@@ -278,8 +307,7 @@ export function buildRegisterTemplate() {
       {
         name: "Attendance Registers",
         columns: REGISTER_COLUMNS,
-        rows: SAMPLE_VILLAGES.map((v, i) => [...SAMPLE_BOUNDARY_PATH, v.village, v.code, registerIds[i], sessions]),
-        lists: [{ columns: ["NIGERIA_COUNTRY"], options: ["Nigeria"] }],
+        rows: areas.map((a, i) => [a.level, a.name, a.code, registerIds[i], sessions]),
       },
       {
         name: "Boundary Data",
@@ -297,15 +325,18 @@ async function parseRegisterTemplate(file) {
   const [rows = []] = await readTemplate(file, [REGISTER_ID, BOUNDARY_CODE]);
   const registers = [];
   for (const row of rows) {
+    // Older files have one column per level (Country → Village) instead of Boundary Level + Name.
     const filled = BOUNDARY_COLUMNS.filter((c) => row.get(c.code));
     const deepest = filled[filled.length - 1];
-    const name = row.get(REGISTER_ID) || row.get(BOUNDARY_CODE) || (deepest ? row.get(deepest.code) : "");
+    const level = row.get(BOUNDARY_LEVEL);
+    const areaName = row.get(BOUNDARY_NAME) || (deepest ? row.get(deepest.code) : "");
+    const name = row.get(REGISTER_ID) || row.get(BOUNDARY_CODE) || areaName;
     if (!name) continue;
     const sessions = Number(row.get(REGISTER_SESSIONS)) || 1;
     registers.push({
       name,
-      boundary: filled.map((c) => row.label(c.code)).join(", "),
-      boundaryName: deepest ? row.get(deepest.code) : "",
+      boundary: level || filled.map((c) => row.label(c.code)).join(", "),
+      boundaryName: areaName,
       boundaryCode: row.get(BOUNDARY_CODE),
       frequency: sessions === 1 ? "Once" : sessions === 2 ? "Twice" : `${sessions} sessions`,
       officer: "",
@@ -420,8 +451,35 @@ export function buildUserMappingTemplate() {
       : null;
   const deenrollmentCell = options?.deenrollment === SAME_DATE && options.deenrollmentDate ? dateCell(options.deenrollmentDate) : null;
   let n = 0;
+  // Users picked on View Register go into the template as they are, each on their type's tab.
+  const picked = getState().mappingUsers ?? [];
   const dataSheets = USER_SHEETS.map((sheet) => {
     const rows = [];
+    if (picked.length) {
+      const reg = registers[0];
+      picked
+        .filter((u) => `${u.type}s` === sheet.name)
+        .forEach((u) =>
+          rows.push([
+            u.workerId,
+            u.name,
+            u.username,
+            u.role ?? null,
+            null,
+            null,
+            null,
+            null,
+            reg?.boundaryName ?? null,
+            reg?.boundaryCode ?? null,
+            reg?.name ?? null,
+            enrollmentCell,
+            deenrollmentCell,
+            ...(sheet.teamCode ? [null] : []),
+            crypto.randomUUID(),
+          ]),
+        );
+      return { name: sheet.name, columns: userColumns(sheet.teamCode), rows, lists: [{ columns: USER.roles, options: ROLE_OPTIONS }] };
+    }
     registers.forEach((reg, ri) => {
       for (let i = 0; i < sheet.perRegister; i++, n++) {
         const name = SAMPLE_NAMES[n % SAMPLE_NAMES.length] ?? "User";

@@ -21,6 +21,7 @@ export default function RegisterSummary() {
       guide={REGISTER_COLUMN_GUIDE}
       groups={REGISTER_COLUMN_GROUPS}
       prefilled={["Register ID", "Sessions"]}
+      locked={["Boundary Level", "Boundary Name"]}
     />
   );
 }

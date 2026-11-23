@@ -24,7 +24,8 @@ export default function MapSummary() {
       workbook={workbook}
       guide={USER_COLUMN_GUIDE}
       groups={USER_COLUMN_GROUPS}
-      prefilled={["Register ID", "Boundary", ...(options.enrollment === SAME_DATE ? ["Enrollment Date"] : [])]}
+      locked={["Register ID", "Boundary"]}
+      prefilled={[...(options.enrollment === SAME_DATE ? ["Enrollment Date"] : [])]}
     />
   );
 }

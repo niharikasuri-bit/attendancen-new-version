@@ -15,7 +15,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { attendanceActions, getRegisters, TOTAL_CAMPAIGN_USERS, useAttendanceStore } from "@/lib/attendance-store";
+import { attendanceActions, getRegisters, TOTAL_CAMPAIGN_USERS, unmappedUsers, useAttendanceStore } from "@/lib/attendance-store";
 import { downloadRegisters } from "@/lib/templates";
 import { Loader, useOverlayLoader, usePageLoading } from "@/components/loader";
 
@@ -313,6 +313,7 @@ export default function ManageRegisters() {
                   <th className="w-[180px] px-4 py-3">Boundary level</th>
                   <th className="px-4 py-3 text-right">Total users</th>
                   <th className="px-4 py-3 text-right">Active users</th>
+                  <th className="px-4 py-3">Unmapped users</th>
                   <th className="px-4 py-3">Attendance frequency</th>
                   <th className="px-4 py-3">Attendance officer</th>
                   <th className="px-4 py-3">Status</th>
@@ -321,14 +322,14 @@ export default function ManageRegisters() {
               <tbody>
                 {loading && (
                   <tr>
-                    <td colSpan={8}>
+                    <td colSpan={9}>
                       <Loader text="Loading registers…" />
                     </td>
                   </tr>
                 )}
                 {!loading && pageRows.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-10 text-center">
+                    <td colSpan={9} className="px-4 py-10 text-center">
                       <p className="text-sm font-medium text-foreground">No registers match your filters.</p>
                       <button onClick={clearFilters} className="mt-2 text-sm font-medium text-primary hover:underline">
                         Clear filters
@@ -353,6 +354,21 @@ export default function ManageRegisters() {
                       <td className="max-w-[180px] whitespace-normal break-words px-4 py-3 text-sm text-foreground">{r.boundary}</td>
                       <td className="px-4 py-3 text-right text-sm tabular-nums text-foreground">{r.users}</td>
                       <td className="px-4 py-3 text-right text-sm tabular-nums text-foreground">{r.active}</td>
+                      <td className="px-4 py-3 text-sm">
+                        {(() => {
+                          const n = unmappedUsers(r, store.users, store.skippedUsers).length;
+                          return n > 0 ? (
+                            <Link
+                              to={`/attendance/registers/${r.id}?from=manage#unmapped`}
+                              className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900 underline-offset-2 hover:underline"
+                            >
+                              {n} unmapped
+                            </Link>
+                          ) : (
+                            <span className="text-muted-foreground">None</span>
+                          );
+                        })()}
+                      </td>
                       <td className="px-4 py-3 text-sm text-foreground">{frequencyLabel(r.frequency)}</td>
                       <td className="px-4 py-3 text-sm text-foreground">{r.officer || <span className="text-muted-foreground">Not assigned</span>}</td>
                       <td className="px-4 py-3">

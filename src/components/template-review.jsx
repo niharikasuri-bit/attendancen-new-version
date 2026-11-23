@@ -6,7 +6,7 @@ import { AppShell, Breadcrumb, FlowFooter } from "@/components/app-shell";
 import { COLUMN_TONES, SheetTable } from "@/components/upload-instructions";
 import { backButtonClass, primaryButtonClass } from "@/components/flow-controls";
 
-const LEGEND = ["auto", "required", "optional"];
+const LEGEND = ["fixed", "auto", "required", "optional"];
 
 /**
  * Review step before generating a template: a preview of the template with its columns
@@ -15,30 +15,28 @@ const LEGEND = ["auto", "required", "optional"];
  * `templateName`: e.g. "Attendance Register Template".
  * `prefilled`: column labels the template fills in from the user's selections.
  */
-export function TemplateReview({ crumb, templateName, workbook, guide, groups, backTo, generateTo, prefilled = [] }) {
+export function TemplateReview({ crumb, templateName, workbook, guide, groups, backTo, generateTo, prefilled = [], locked = [] }) {
   const navigate = useNavigate();
   const withLoader = useOverlayLoader();
   const sheets = workbook.sheets.filter((s) => !s.guide);
   const [active, setActive] = useState(0);
   const sheet = sheets[active];
 
-  // Colour-code each column of a fillable sheet; reference sheets stay neutral.
+  // Tag each column with what the user may do with it; reference sheets (lookup data) are all non-editable.
   const toneFor = (column) => {
-    if (!sheet || sheet.reference) return null;
+    if (!sheet) return null;
+    if (sheet.reference) return { tone: "fixed", help: "Reference data from your boundaries." };
     const group = groups.find((g) => g.pattern.test(column.label));
     const label = group ? group.label : column.label;
     const info = group ?? guide[label] ?? {};
     const required = group?.requiredColumns ? group.requiredColumns.includes(column.label) : !!info.required;
-    const tone = prefilled.includes(label) ? "auto" : required ? "required" : "optional";
+    const tone = locked.includes(label) ? "fixed" : prefilled.includes(label) ? "auto" : required ? "required" : "optional";
     const format = column.label === "Register ID" ? "BILL XXXXXXXX" : undefined;
-    return { tone, format, help: tone === "auto" ? "Filled in from your selections." : info.help };
+    return { tone, format, help: tone === "auto" || tone === "fixed" ? "Filled in from your selections." : info.help };
   };
 
-  // Which colours appear on the sheet being shown (the legend lists only those).
-  const counts = (sheet?.columns ?? []).filter((c) => !c.hidden).reduce((acc, c) => {
-    const tone = toneFor(c)?.tone;
-    return tone ? { ...acc, [tone]: (acc[tone] ?? 0) + 1 } : acc;
-  }, {});
+  // The legend lists only the kinds of column on the sheet being shown.
+  const shown = new Set((sheet?.columns ?? []).filter((c) => !c.hidden).map((c) => toneFor(c)?.tone).filter(Boolean));
 
   return (
     <AppShell>
@@ -56,7 +54,22 @@ export function TemplateReview({ crumb, templateName, workbook, guide, groups, b
           This is a preview of your template. It includes columns we've filled in for you, columns you need to complete, and columns that are optional.
         </p>
 
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="mt-5 flex flex-wrap items-stretch justify-between gap-3">
+          {shown.size > 0 ? (
+            <ul
+              className="flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-md border border-border bg-card px-3 py-2"
+              aria-label="What you can do with each column"
+            >
+              {LEGEND.filter((tone) => shown.has(tone)).map((tone) => (
+                <li key={tone} className="flex items-center gap-2 text-sm font-medium text-heading">
+                  <span className={`size-4 shrink-0 rounded-sm border border-black/15 ${COLUMN_TONES[tone].band}`} aria-hidden="true" />
+                  {COLUMN_TONES[tone].label}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <span />
+          )}
           <div className="flex items-center gap-2.5 rounded-md bg-chip px-3 py-2" role="note">
             <Lock className="size-4 shrink-0 text-heading" aria-hidden="true" />
             <div className="leading-tight">
@@ -64,17 +77,6 @@ export function TemplateReview({ crumb, templateName, workbook, guide, groups, b
               <p className="text-xs text-muted-foreground">You can edit the file in Excel after you generate and download it.</p>
             </div>
           </div>
-          <ul
-            className="inline-flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-md border border-border bg-info-bg px-3 py-2"
-            aria-label="Column colours"
-          >
-            {LEGEND.filter((tone) => counts[tone]).map((tone) => (
-              <li key={tone} className="flex items-center gap-2 text-sm font-medium text-heading">
-                <span className={`size-3 rounded-sm ${COLUMN_TONES[tone].swatch}`} aria-hidden="true" />
-                {COLUMN_TONES[tone].label}
-              </li>
-            ))}
-          </ul>
         </div>
 
         {/* The preview itself, styled like the Excel file. */}
